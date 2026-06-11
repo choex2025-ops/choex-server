@@ -1,4 +1,4 @@
-.PHONY: run build test
+.PHONY: run build test lint
 
 run:
 	go run cmd/server/main.go
