@@ -6,6 +6,7 @@ import (
 	"github.com/choex2025-ops/choex-server/internal/config"
 	"github.com/choex2025-ops/choex-server/internal/database"
 	"github.com/choex2025-ops/choex-server/internal/model"
+	"github.com/choex2025-ops/choex-server/internal/router"
 )
 
 func main() {
@@ -16,5 +17,9 @@ func main() {
 		log.Fatalf("Migration failed: %v", err)
 	}
 
-	log.Printf("Server ready on :%s", cfg.ServerPort)
+	r := router.Setup(cfg)
+	log.Printf("Server running on :%s", cfg.ServerPort)
+	if err := r.Run(":" + cfg.ServerPort); err != nil {
+		log.Fatalf("Failed to start server: %v", err)
+	}
 }
