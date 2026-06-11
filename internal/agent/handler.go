@@ -7,14 +7,15 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/choex2025-ops/choex-server/internal/config"
+	"github.com/choex2025-ops/choex-server/llm"
 )
 
 type AgentHandler struct {
-	svc *ChatService
+	cfg *config.Config
 }
 
 func NewAgentHandler(cfg *config.Config) *AgentHandler {
-	return &AgentHandler{svc: NewChatService(cfg)}
+	return &AgentHandler{cfg: cfg}
 }
 
 type chatRequest struct {
@@ -41,7 +42,7 @@ func (h *AgentHandler) Chat(c *gin.Context) {
 
 	userID := c.GetUint64("user_id")
 
-	ch, err := h.svc.SendMessage(c.Request.Context(), userID, req.Message)
+	ch, err := processAgentChat(h.cfg, userID, []llm.Message{}, req.Message)
 	if err != nil {
 		data, _ := json.Marshal(gin.H{"error": err.Error()})
 		c.Writer.Write([]byte("data: " + string(data) + "\n\n"))
