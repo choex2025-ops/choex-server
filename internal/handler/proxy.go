@@ -4,6 +4,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,7 +16,8 @@ func ProxyHandler(c *gin.Context) {
 		return
 	}
 
-	if _, err := url.ParseRequestURI(targetURL); err != nil {
+	parsed, err := url.ParseRequestURI(targetURL)
+	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid url"})
 		return
 	}
@@ -27,11 +29,25 @@ func ProxyHandler(c *gin.Context) {
 	}
 	defer resp.Body.Close()
 
-	for k, v := range resp.Header {
-		for _, vv := range v {
-			c.Header(k, vv)
+	contentType := resp.Header.Get("Content-Type")
+
+	// Pass through headers we care about
+	for _, h := range []string{"Content-Type", "Content-Length"} {
+		if v := resp.Header.Get(h); v != "" {
+			c.Header(h, v)
 		}
 	}
-	c.Status(resp.StatusCode)
-	io.Copy(c.Writer, resp.Body)
+
+	body, _ := io.ReadAll(resp.Body)
+
+	// Inject <base> tag into HTML so relative URLs resolve correctly
+	if strings.Contains(contentType, "text/html") {
+		baseTag := "<base href=\"" + targetURL + "\">"
+		body = []byte(strings.Replace(string(body), "<head>", "<head>"+baseTag, 1))
+		c.Header("Content-Length", "")
+	}
+
+	baseURL := parsed.Scheme + "://" + parsed.Host
+	c.Header("X-Proxy-Base", baseURL)
+	c.Data(resp.StatusCode, contentType, body)
 }

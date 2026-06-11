@@ -2,6 +2,7 @@ package agent
 
 import (
 	"encoding/json"
+	"log"
 	"os"
 	"strings"
 	"time"
@@ -125,13 +126,17 @@ func processAgentChat(cfg *config.Config, userID uint64, history []llm.Message, 
 		return nil, err
 	}
 
+	log.Printf("[Agent] user=%d msg=%q raw_response=%q", userID, userMsg, content)
+
 	// Check if LLM wants to call a tool (must be clean JSON with known tool name)
 	content = trimSpace(content)
+	// Only treat as tool call if response is EXACTLY a JSON object (single line, starts with {, ends with })
+	isPureJSON := len(content) > 0 && content[0] == '{' && content[len(content)-1] == '}'
 	var toolReq struct {
 		Tool string         `json:"tool"`
 		Args map[string]any `json:"args"`
 	}
-	if len(content) > 0 && content[0] == '{' &&
+	if isPureJSON &&
 		json.Unmarshal([]byte(content), &toolReq) == nil &&
 		toolReq.Tool != "" && validTools[toolReq.Tool] {
 		argsJSON, _ := json.Marshal(toolReq.Args)
