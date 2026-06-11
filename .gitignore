@@ -1,0 +1,30 @@
+# Superpowers brainstorm artifacts
+.superpowers/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+vendor/
+bin/
+
+# Environment
+.env
+.env.local
+
+# Node
+node_modules/
+dist/
