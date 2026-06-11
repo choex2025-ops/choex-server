@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/choex2025-ops/choex-server/internal/config"
@@ -12,21 +13,37 @@ import (
 )
 
 func toolCallSystemPrompt() string {
-	return `你是 ChoexManager 个人生活管家。你可以使用以下工具帮助用户：
+	return `你是 ChoexManager 个人生活管家。
+
+【重要】区分以下两种回复方式：
+
+1. 普通对话：当用户只是聊天、问候、自我介绍、问问题，直接回复文字。
+   例如用户说"介绍一下你自己"→ 用自然语言介绍自己。
+
+2. 工具调用：仅当用户明确要求操作数据时才使用工具。格式如下（严格 JSON，独占一行）：
+   {"tool":"工具名","args":{...参数...}}
+
+   例如用户说"帮我记一笔午餐30元"→ 调用 create_bill 工具。
 
 可用工具：
-1. list_events - 列出用户的日程列表
-2. create_event - 创建新日程。参数: title(标题), start_time(开始时间), end_time(结束时间), description(描述), location(地点)
-3. list_bills - 列出用户的记账记录
-4. create_bill - 创建记账记录。参数: amount(金额), type(expense/income), category(餐饮/交通/购物/娱乐/其他), note(备注)
+- list_events：列出日程列表（无参数）
+- create_event：创建日程。参数: title, start_time, end_time, description(可选), location(可选)
+- list_bills：列出记账记录（无参数）
+- create_bill：创建记账。参数: amount(数字), type("expense"或"income"), category(可选), note(可选)`
+}
 
-当你需要调用工具时，以以下JSON格式回复，不要有任何其他内容：
-{"tool":"工具名","args":{...参数...}}
-
-收到工具结果后，用自然语言向用户解释结果。`
+var validTools = map[string]bool{
+	"list_events":  true,
+	"create_event": true,
+	"list_bills":   true,
+	"create_bill":  true,
 }
 
 func executeTool(name string, userID uint64, jsonArgs string) string {
+	if !validTools[name] {
+		return `{"error": "unknown tool: ` + name + `"}`
+	}
+
 	var args map[string]any
 	json.Unmarshal([]byte(jsonArgs), &args)
 
@@ -38,9 +55,12 @@ func executeTool(name string, userID uint64, jsonArgs string) string {
 		return string(b)
 
 	case "create_event":
-		title, _ := args["title"].(string)
-		startStr, _ := args["start_time"].(string)
+		title, okT := args["title"].(string)
+		startStr, okS := args["start_time"].(string)
 		endStr, _ := args["end_time"].(string)
+		if !okT || title == "" || !okS || startStr == "" {
+			return `{"error": "create_event requires: title, start_time"}`
+		}
 		desc, _ := args["description"].(string)
 		loc, _ := args["location"].(string)
 
@@ -65,8 +85,11 @@ func executeTool(name string, userID uint64, jsonArgs string) string {
 		return string(b)
 
 	case "create_bill":
-		amount, _ := args["amount"].(float64)
-		billType, _ := args["type"].(string)
+		amount, okAmt := args["amount"].(float64)
+		billType, okType := args["type"].(string)
+		if !okAmt || amount <= 0 || !okType || (billType != "expense" && billType != "income") {
+			return `{"error": "create_bill requires: amount(>0), type(expense or income)"}`
+		}
 		category, _ := args["category"].(string)
 		note, _ := args["note"].(string)
 
@@ -102,12 +125,15 @@ func processAgentChat(cfg *config.Config, userID uint64, history []llm.Message, 
 		return nil, err
 	}
 
-	// Check if LLM wants to call a tool
+	// Check if LLM wants to call a tool (must be clean JSON with known tool name)
+	content = trimSpace(content)
 	var toolReq struct {
 		Tool string         `json:"tool"`
 		Args map[string]any `json:"args"`
 	}
-	if json.Unmarshal([]byte(content), &toolReq) == nil && toolReq.Tool != "" {
+	if len(content) > 0 && content[0] == '{' &&
+		json.Unmarshal([]byte(content), &toolReq) == nil &&
+		toolReq.Tool != "" && validTools[toolReq.Tool] {
 		argsJSON, _ := json.Marshal(toolReq.Args)
 		result := executeTool(toolReq.Tool, userID, string(argsJSON))
 
@@ -130,6 +156,10 @@ func processAgentChat(cfg *config.Config, userID uint64, history []llm.Message, 
 	}()
 
 	return ch, nil
+}
+
+func trimSpace(s string) string {
+	return strings.TrimSpace(s)
 }
 
 func getEnv(key, def string) string {
