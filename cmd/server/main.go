@@ -13,7 +13,12 @@ func main() {
 	cfg := config.Load()
 
 	database.Init(cfg)
-	if err := database.DB.AutoMigrate(&model.User{}); err != nil {
+	if err := database.DB.AutoMigrate(
+		&model.User{},
+		&model.Event{},
+		&model.Bill{},
+		&model.Password{},
+	); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
 

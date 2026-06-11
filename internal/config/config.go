@@ -13,8 +13,9 @@ type Config struct {
 	DBName      string
 	RedisHost   string
 	RedisPort   string
-	JWTSecret   string
-	DeepSeekKey string
+	JWTSecret      string
+	DeepSeekKey    string
+	EncryptionKey  string
 }
 
 func Load() *Config {
@@ -27,8 +28,9 @@ func Load() *Config {
 		DBName:      getEnv("DB_NAME", "choex_manager"),
 		RedisHost:   getEnv("REDIS_HOST", "localhost"),
 		RedisPort:   getEnv("REDIS_PORT", "6379"),
-		JWTSecret:   getEnv("JWT_SECRET", "dev-secret"),
-		DeepSeekKey: os.Getenv("DEEPSEEK_API_KEY"),
+		JWTSecret:     getEnv("JWT_SECRET", "dev-secret"),
+		DeepSeekKey:   os.Getenv("DEEPSEEK_API_KEY"),
+		EncryptionKey: getEnv("ENCRYPTION_KEY", "choex2025-32byte-secret-key!!!"),
 	}
 }
 
