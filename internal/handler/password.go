@@ -18,6 +18,15 @@ func NewPasswordHandler(svc *service.PasswordService) *PasswordHandler {
 	return &PasswordHandler{svc: svc}
 }
 
+type passwordBody struct {
+	Title    string `json:"title"`
+	URL      string `json:"url"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Note     string `json:"note"`
+	Category string `json:"category"`
+}
+
 func (h *PasswordHandler) List(c *gin.Context) {
 	userID := c.GetUint64("user_id")
 	passwords, err := h.svc.List(userID)
@@ -32,50 +41,33 @@ func (h *PasswordHandler) List(c *gin.Context) {
 }
 
 func (h *PasswordHandler) Create(c *gin.Context) {
-	var p model.Password
-	if err := c.ShouldBindJSON(&p); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-	p.UserID = c.GetUint64("user_id")
-
-	encrypted, err := h.svc.Encrypt(c.GetString("plain_password"))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "encryption failed"})
-		return
-	}
-	// Get plain password from request body
-	var body struct {
-		Title    string `json:"title"`
-		URL      string `json:"url"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Note     string `json:"note"`
-		Category string `json:"category"`
-	}
+	var body passwordBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	encrypted, err = h.svc.Encrypt(body.Password)
+
+	encrypted, err := h.svc.Encrypt(body.Password)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "encryption failed"})
 		return
 	}
 
-	p.Title = body.Title
-	p.URL = body.URL
-	p.Username = body.Username
-	p.EncryptedPassword = encrypted
-	p.Note = body.Note
-	p.Category = body.Category
+	p := map[string]any{
+		"user_id":            c.GetUint64("user_id"),
+		"title":              body.Title,
+		"url":                body.URL,
+		"username":           body.Username,
+		"encrypted_password": encrypted,
+		"note":               body.Note,
+		"category":           body.Category,
+	}
 
-	if err := h.svc.Create(&p); err != nil {
+	if err := h.svc.CreateRaw(p); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	p.EncryptedPassword = ""
-	c.JSON(http.StatusCreated, p)
+	c.JSON(http.StatusCreated, gin.H{"title": body.Title, "username": body.Username, "url": body.URL})
 }
 
 func (h *PasswordHandler) Get(c *gin.Context) {
@@ -97,14 +89,7 @@ func (h *PasswordHandler) Update(c *gin.Context) {
 	id, _ := strconv.ParseUint(c.Param("id"), 10, 64)
 	userID := c.GetUint64("user_id")
 
-	var body struct {
-		Title    string `json:"title"`
-		URL      string `json:"url"`
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Note     string `json:"note"`
-		Category string `json:"category"`
-	}
+	var body passwordBody
 	if err := c.ShouldBindJSON(&body); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return

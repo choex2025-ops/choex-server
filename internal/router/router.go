@@ -71,10 +71,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 			protected.GET("/memories/:id/versions", memoryHandler.GetVersions)
 			protected.PUT("/memories/:id/versions/:type", memoryHandler.SaveVersion)
 			protected.PUT("/memories/:id/restore", memoryHandler.Restore)
-
-			// Browser proxy
-			protected.GET("/proxy", handler.ProxyHandler)
 		}
+		// Browser proxy (no auth for iframe support)
+		api.GET("/proxy", handler.ProxyHandler)
 	}
 
 	return r

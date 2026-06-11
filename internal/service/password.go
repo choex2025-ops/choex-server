@@ -36,6 +36,10 @@ func (s *PasswordService) Create(p *model.Password) error {
 	return database.DB.Create(p).Error
 }
 
+func (s *PasswordService) CreateRaw(data map[string]any) error {
+	return database.DB.Table("passwords").Create(data).Error
+}
+
 func (s *PasswordService) Get(id uint64, userID uint64) (*model.Password, error) {
 	var p model.Password
 	err := database.DB.Where("id = ? AND user_id = ?", id, userID).First(&p).Error
