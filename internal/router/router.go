@@ -27,6 +27,9 @@ func Setup(cfg *config.Config) *gin.Engine {
 	passwordSvc := service.NewPasswordService(cfg.EncryptionKey)
 	passwordHandler := handler.NewPasswordHandler(passwordSvc)
 
+	memorySvc := service.NewMemoryService()
+	memoryHandler := handler.NewMemoryHandler(memorySvc)
+
 	api := r.Group("/api")
 	{
 		auth := api.Group("/auth")
@@ -59,6 +62,15 @@ func Setup(cfg *config.Config) *gin.Engine {
 			protected.GET("/passwords/:id", passwordHandler.Get)
 			protected.PUT("/passwords/:id", passwordHandler.Update)
 			protected.DELETE("/passwords/:id", passwordHandler.Delete)
+
+			// Memory management
+			protected.GET("/memories", memoryHandler.List)
+			protected.POST("/memories", memoryHandler.Create)
+			protected.PUT("/memories/:id/activate", memoryHandler.Activate)
+			protected.DELETE("/memories/:id", memoryHandler.Delete)
+			protected.GET("/memories/:id/versions", memoryHandler.GetVersions)
+			protected.PUT("/memories/:id/versions/:type", memoryHandler.SaveVersion)
+			protected.PUT("/memories/:id/restore", memoryHandler.Restore)
 
 			// Browser proxy
 			protected.GET("/proxy", handler.ProxyHandler)

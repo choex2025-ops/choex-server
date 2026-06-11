@@ -18,6 +18,8 @@ func main() {
 		&model.Event{},
 		&model.Bill{},
 		&model.Password{},
+		&model.AgentMemory{},
+		&model.MemoryVersion{},
 	); err != nil {
 		log.Fatalf("Migration failed: %v", err)
 	}
